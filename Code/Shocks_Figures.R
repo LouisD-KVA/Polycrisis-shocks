@@ -132,6 +132,43 @@ setwd("C:/Users/basti/Documents/GitHub/Shocks")
 
 # Figure 2 (Timeseries by Shocks) ---- 
 
+# Alternative Map (start)
+  glimpse(data)
+  data_c <- data %>% group_by(countrycode) %>% summarise(count=sum(count,na.rm=TRUE))
+  data_c$count
+  glimpse(data_c)
+  library(rnaturalearth)
+  world <- ne_countries(scale = "medium", returnclass = "sf")
+  shock_map <- left_join(world, data_c, by = c("iso_a3" = "countrycode"))%>% filter(continent != "Antarctica")
+  data_c$count
+  shock_map$count
+  quantile_breaks <- quantile(shock_map$count, probs = seq(0, 1, length.out = 5), na.rm = TRUE)
+
+    labels2 <- c(
+        paste0("<", round(quantile_breaks[2], 0)),
+        paste0("(", round(quantile_breaks[2], 0), ",", round(quantile_breaks[3], 0), "]"),
+        paste0("(", round(quantile_breaks[3], 0), ",", round(quantile_breaks[4], 0), "]"),
+        paste0(">", round(quantile_breaks[4], 0))
+    )
+
+    shock_map$damage_category <- cut(
+        shock_map$count,
+        breaks = quantile_breaks,
+        labels = labels2,
+        include.lowest = TRUE
+    )
+
+    ggplot(data = shock_map) +
+    geom_sf(aes(fill = damage_category )) +
+    #scale_fill_manual(values = custom_colors, name = "No. of Shocks",na.value="transparent") +
+    scale_fill_scico_d(palette="vik",end=0.9)+
+    coord_sf(crs = "+proj=robin") + # Robinson projection
+    theme_minimal() +
+    labs(fill = "No. of Shocks")
+
+    #ggsave("Figures/Alternative_Map.jpg",dpi=300)
+    
+# Aletrnative Map (end)
 # Figure of Filters (Not Used in Main Text) ---- 
 
 
