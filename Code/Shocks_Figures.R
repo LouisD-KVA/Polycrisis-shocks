@@ -1,6 +1,6 @@
 ## Analysis Code 
 ## Code for Dynamics of the polycrisis: evolution, distribution and interconnection of Human-Earth system shocks (1970-2013) 
-## Coder: Bernie Bastien (2024)
+## Coder: Bernie Bastien (2024); Felipe Benra (Fig 3)
 
 setwd("C:/Users/basti/Documents/GitHub/Shocks")
 # Install and load necessary libraries using a vector ---- 
@@ -219,6 +219,55 @@ setwd("C:/Users/basti/Documents/GitHub/Shocks")
                                 
 
     #ggsave("Filtered_Shocks_bottom.png", dpi = 300)
+
+# Figure 3 (Global Map of normalized shocks)
+
+#libraries
+library(terra)
+library(readxl)
+library(openxlsx)
+library(dplyr)
+library(tidyverse)
+library(wbstats)  
+library(countrycode)
+
+#import shapefile of all countries
+
+countries<-terra::vect("Z:/Global_Shocks/spatial_data", layer="World_Countries__Generalized_")
+countries$COUNTRY#check countries names
+countries$ISO#namibia is not there as possible the system recognizes it as "na" given that the iso2 code is NA
+
+countries$ISO3<-countrycode(countries$ISO,"iso2c","iso3c")#get ISO3 code out of IS02 Code
+countries$ISO3
+countries$ISO3[154]<-"NAM"#here we change the name of Namibia to iso3 code to avoid confusion with the "NA" string from the iso2 code
+
+countries$COUNTRY<-tolower(countries$COUNTRY)#tolower case
+plot(countries)
+
+# import normalited shock data 
+
+shocks<-read_csv("Z:/Global_Shocks/Data/Shock norm 1970-2013(in).csv")
+
+shock_summ<-shocks%>% 
+  group_by(`Country name`)%>%
+  summarize(nr_of_events=sum(as.numeric(count)))
+
+#transform country names into ISO3 code to be able to merge databases
+
+shock_summ$ISO3<-countrycode(shock_summ$`Country name`,"country.name","iso3c")
+shock_summ$`Country name`<-tolower(shock_summ$`Country name`)#to lower case
+shock_summ$`Country name`<-gsub(" ", "", shock_summ$`Country name`)
+
+
+#spatialize and merge databases
+vector_countries<-terra::merge(countries,shock_summ, by="ISO3")
+as.data.table(vector_countries)##check data
+names(vector_countries)[c(7:8)]<-c("country_nam","nr_event")#name columns
+plot(vector_countries)
+
+#Export as shapefile to visualize and edit in any GIS software
+
+terra::writeVector(vector_countries,"Z:/Global_Shocks/spatial_data", layer="vector_countries", filetype = "ESRI Shapefile", overwrite = TRUE)
 
 
 # Figure of Filters (Not Used in Main Text) ---- 
