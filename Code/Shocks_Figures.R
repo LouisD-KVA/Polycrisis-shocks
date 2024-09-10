@@ -2,7 +2,16 @@
 ## Code for Dynamics of the polycrisis: evolution, distribution and interconnection of Human-Earth system shocks (1970-2013) 
 ## Coders: Bernie Bastien & Felipe Benra
 
+# FIGURES INDEX
+# Figure 2: Line 84 to Line 165
+# Figure 3: Line 227 to Line 307
+# Figure 4: Line 310 to Line 335
+# Figure 5: Line 337 to Line 437
+# Figure 6: Line 440 to Line 542
+# Additional Figures: From 545
 setwd("C:/Users/basti/Documents/GitHub/Polycrisis-shocks")
+
+
 # Install and load necessary libraries using a vector ---- 
   packages <- c("circlize","tidygraph","scico","dplyr", "readr","stats","tidyr","ggplot2","mFilter","zoo","dplR","tools","countrycode","ggraph","igraph","purrr")
   for (pkg in packages) {
@@ -13,17 +22,28 @@ setwd("C:/Users/basti/Documents/GitHub/Polycrisis-shocks")
   }
 
 
-  # Read CSV file
-  data_original <- read_csv("Data/shocks_count.csv")%>% 
-      rename(country = `Country name`,  
-          year = Year,
-          shock_category = `Shock Category`, 
-          shock_type = `Shock Type`) %>% 
-          mutate(count = as.integer(count), year = as.integer(year))
+  # # Read CSV file
+  # data_original <- read_csv("Data/shocks_count.csv")%>% 
+  #     rename(country = `Country name`,  
+  #         year = Year,
+  #         shock_category = `Shock Category`, 
+  #         shock_type = `Shock Type`) %>% 
+  #         mutate(count = as.integer(count), year = as.integer(year))
 
-  glimpse(data_original)
+  # glimpse(data_original)
 
-  data <- read_csv("Data/Shocks_Database_counts.csv") %>% 
+  # data <- read_csv("Data/Shocks_Database_counts.csv") %>% 
+  #     rename(country = `Country name`,  
+  #         year = Year,
+  #         shock_category = `Shock category`, 
+  #         shock_type = `Shock type`) %>% 
+  #         mutate(count = as.integer(count), year = as.integer(year)) %>% 
+  #         filter(shock_category %in% c("CLIMATIC", "CONFLICTS", "ECOLOGICAL", "ECONOMIC", "GEOPHYSICAL", "TECHNOLOGICAL")) %>%
+  #         mutate(shock_category = toTitleCase(tolower(shock_category))) %>%
+  #         mutate(countrycode = countrycode(country,origin="country.name",destination="iso3c")) 
+
+  
+  data_present <- read_csv("Data/Shock counts 1970-2021.csv") %>% 
       rename(country = `Country name`,  
           year = Year,
           shock_category = `Shock category`, 
@@ -32,6 +52,9 @@ setwd("C:/Users/basti/Documents/GitHub/Polycrisis-shocks")
           filter(shock_category %in% c("CLIMATIC", "CONFLICTS", "ECOLOGICAL", "ECONOMIC", "GEOPHYSICAL", "TECHNOLOGICAL")) %>%
           mutate(shock_category = toTitleCase(tolower(shock_category))) %>%
           mutate(countrycode = countrycode(country,origin="country.name",destination="iso3c")) 
+  
+  data <- data_present %>% filter(year < 2020)
+
   
 
   shocks<-read.csv("Data/Shocks_Database_normalized.csv", sep = ",") %>%
@@ -43,6 +66,9 @@ setwd("C:/Users/basti/Documents/GitHub/Polycrisis-shocks")
   glimpse(regions)
 
   data <- left_join(data, regions, by = "countrycode") %>%
+    mutate(region = sub("R5", "", region))  # Remove 'R5' from the region column
+
+  data_present <- left_join(data_present, regions, by = "countrycode") %>%
     mutate(region = sub("R5", "", region))  # Remove 'R5' from the region column
 
   data_master <- data
@@ -123,6 +149,65 @@ setwd("C:/Users/basti/Documents/GitHub/Polycrisis-shocks")
     geom_bar(stat = "identity") +
     facet_wrap(~shock_category, scales = "free_y",ncol=2) +
     scale_fill_manual(values = shock_type_colors_vector) +
+    labs(title = "",
+        x = "Year", y = "Count", fill = "Shock Type") +
+    theme_minimal() +
+    theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1)) +
+    guides(fill = guide_legend(ncol = 1, override.aes = list(color = NA, size = 1)))+theme(
+      axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1),
+      legend.text = element_text(size = 8),  # Adjust legend text size
+      legend.key.size = unit(0.5, "lines")  # Adjust legend key size
+    ) 
+
+    #ggsave("Shock_Counts_by_Year_and_Category_2cols_size2_2019.png",dpi = 300)
+    #ggsave("Shock_Counts_by_Year_and_Category_2cols_size2.jpg",dpi = 300)
+
+# Figure 2 (Timeseries by Shocks) ---- 
+
+# Figure 2B (Timeseries by Shocks 2020) ---- 
+
+
+  categories <- unique(data_present$shock_category)
+  base_colors <- brewer.pal(length(categories), "Set2")
+
+  # Create a named vector for base colors
+  category_colors <- setNames(base_colors, categories)
+  lighter_color <- adjustcolor(category_colors[1], alpha.f = 0.5)
+
+
+
+  data_present <- data_present %>%
+    mutate(shock_type = ifelse(grepl("wet|dry", shock_type, ignore.case = TRUE),
+                              shock_type,
+                              gsub("\\s*\\([^\\)]+\\)", "", shock_type))) %>% 
+    mutate(shock_type = factor(shock_type, levels = unique(shock_type[order(shock_category)])))
+  # Create a color palette for each shock_type within each shock_category
+  shock_type_colors <- data_present %>%
+    group_by(shock_category, shock_type) %>%
+    summarise(count = n()) %>%
+    group_by(shock_category) %>%
+    mutate(shade = generate_shades(category_colors[shock_category], n())) %>%
+    ungroup() %>%
+    select(shock_category, shock_type, shade)
+
+  # Create a named vector for shock_type colors
+  shock_type_colors_vector <- setNames(shock_type_colors$shade, shock_type_colors$shock_type)
+  # Create a dummy dataframe for legend separators
+  legend_separators <- data.frame(
+    shock_type = rep("", length(categories)),
+    shock_category = categories,
+    count = 0,
+    year = 0
+  )
+
+  # Combine the original data with the dummy legend separators
+  data_with_separators_present <- bind_rows(data_present, legend_separators)
+
+  # Plot with custom colors
+  ggplot(data_present %>% filter(count > 0), aes(x = year, y = count, fill = shock_type)) +
+    geom_bar(stat = "identity") +
+    facet_wrap(~shock_category, scales = "free_y",ncol=2) +
+    scale_fill_manual(values = shock_type_colors_vector) +
     labs(title = "Shock Counts by Year and Category",
         x = "Year", y = "Count", fill = "Shock Type") +
     theme_minimal() +
@@ -133,12 +218,429 @@ setwd("C:/Users/basti/Documents/GitHub/Polycrisis-shocks")
       legend.key.size = unit(0.5, "lines")  # Adjust legend key size
     ) 
 
-    #ggsave("Shock_Counts_by_Year_and_Category_2cols_size2.png",dpi = 300)
+    #ggsave("Shock_Counts_by_Year_and_Category_2021.png",dpi = 300)
     #ggsave("Shock_Counts_by_Year_and_Category_2cols_size2.jpg",dpi = 300)
 
-# Figure 2 (Timeseries by Shocks) ---- 
+# Figure 2B (Timeseries by Shocks 2020) ---- 
 
-# Alternative Map (start)
+
+# Figure 3 (Global Map of normalized shocks)
+
+  #libraries
+  library(terra)
+  library(readxl)
+  library(openxlsx)
+  library(dplyr)
+  library(tidyverse)
+  library(wbstats)  
+  library(countrycode)
+
+  #import shapefile of all countries
+
+  countries<-terra::vect("Data", layer="World_Countries__Generalized_")
+  countries$COUNTRY#check countries names
+  countries$ISO#namibia is not there as possible the system recognizes it as "na" given that the iso2 code is NA
+
+  countries$ISO3<-countrycode(countries$ISO,"iso2c","iso3c")#get ISO3 code out of IS02 Code
+  countries$ISO3
+  countries$ISO3[154]<-"NAM"#here we change the name of Namibia to iso3 code to avoid confusion with the "NA" string from the iso2 code
+
+  countries$COUNTRY<-tolower(countries$COUNTRY)#tolower case
+  plot(countries)
+
+  # import normalited shock data 
+
+  shocks<-read_csv("Z:/Global_Shocks/Data/Shock norm 1970-2013(in).csv")
+
+  shock_summ<-shocks%>% 
+    group_by(`Country name`)%>%
+    summarize(nr_of_events=sum(as.numeric(count)))
+
+  #transform country names into ISO3 code to be able to merge databases
+
+  shock_summ$ISO3<-countrycode(shock_summ$`Country name`,"country.name","iso3c")
+  shock_summ$`Country name`<-tolower(shock_summ$`Country name`)#to lower case
+  shock_summ$`Country name`<-gsub(" ", "", shock_summ$`Country name`)
+
+  #st_read("Data/World_Countries__Generalized_.shp")
+
+
+  #spatialize and merge databases
+  vector_countries<-terra::merge(countries,shock_summ, by="ISO3")
+  as.data.table(vector_countries)##check data
+  names(vector_countries)[c(7:8)]<-c("country_nam","nr_event")#name columns
+  plot(vector_countries)
+
+  glimpse(vector_countries)
+
+  # Convert SpatVector to sf object
+  vector_countries_sf <- st_as_sf(vector_countries)
+  # Divide the nr_event into 4 quantiles and create labels
+  vector_countries_sf <- vector_countries_sf %>%
+    mutate(quantile_label = ntile(nr_event, 5),
+          quantile_label = case_when(
+            quantile_label == 1 ~ "Low",
+            quantile_label == 2 ~ "Moderate",
+            quantile_label == 3 ~ "High",
+            quantile_label == 4 ~ "Very High",
+            quantile_label == 5 ~ "Severe"
+          ),
+         quantile_label = factor(quantile_label, levels = c("Low", "Moderate", "High","Very High", "Severe"))
+  )
+
+  # Plot using ggplot2 and scico palette
+  ggplot(data = vector_countries_sf) +
+    geom_sf(aes(fill = quantile_label), color = "white") +
+    theme_minimal() +
+    xlab("Longitude") +
+    ylab("Latitude") +
+    theme(legend.position = "right")+
+    scale_fill_scico_d(palette="lajolla",end=0.9,begin=0.2,direction=-1)+
+    coord_sf(crs = "+proj=robin") + # Robinson projection
+    theme_void() +
+    labs(fill = "No. of Shocks")
+  #ggsave("Figures/Number_Normalized_Shocks_Map2.png",dpi=300)
+  #Export as shapefile to visualize and edit in any GIS software
+
+  terra::writeVector(vector_countries,"Z:/Global_Shocks/spatial_data", layer="vector_countries", filetype = "ESRI Shapefile", overwrite = TRUE)
+
+# Figure 3 (Global Map of normalized shocks)
+
+
+### Figure 4 (Heatmap) ----
+  data %>%
+    group_by(year, region, shock_category) %>%
+    filter(!is.na(region)) %>%
+    summarise(total_shocks = sum(count, na.rm = TRUE), .groups = 'drop') %>%
+    # Calculate total shocks per region and year for normalization
+    group_by(year, shock_category) %>%
+    mutate(total_in_region = sum(total_shocks)) %>%
+    ungroup() %>%
+    # Calculate the proportion of each shock type
+    mutate(proportion = total_shocks / total_in_region) %>%
+    ggplot(aes(x = year, y = region, fill = proportion)) +
+    geom_tile() +
+    facet_grid(shock_category ~ ., scales = "free_y", space = "free_y") +  # Facet by shock type
+    labs(title = "",
+        x = "Year", y = "", fill = "Proportion of shocks \nper category per year") +
+    theme_minimal() +
+    theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1),
+          strip.text.y = element_text(angle = 0)) + # Rotate facet labels for better readability
+      scale_fill_scico(palette = 'lapaz',direction=-1) +
+      guides(fill = guide_legend(title = "Proportion of shocks \nper category per year",position="bottom",
+                                title.position = "top", hjust=0.5))
+
+  #ggsave("Shocks_by_Region_and_Category_2019.jpg", dpi = 300)
+
+### Figure 4 (Heatmap) ----
+
+## Figure 5 Coocurrence Circos ---
+
+
+
+  # Identify co-occurrences by year and country
+  co_occurrences <- data %>%
+    #mutate(shock_type = sub(" ", "\n", shock_type)) %>% 
+    group_by(country, year,region) %>%
+    summarise(shock_types = list(shock_type), .groups = 'drop') %>%
+    filter(lengths(shock_types) > 1) %>%
+    mutate(pairs = map(shock_types, ~ combn(.x, 2, simplify = FALSE))) %>%
+    unnest(pairs) %>%
+    mutate(pair = map_chr(pairs, ~ paste(sort(.x), collapse = "-"))) %>%
+    select(country, year, region, pair)
+
+  install.packages("combinat")
+  library(combinat)
+  generate_combinations <- function(shock_types) {
+    comb_list <- list()
+    
+    for (i in 1:length(shock_types)) {
+      comb <- combn(shock_types, i, simplify = FALSE)
+      comb_list <- c(comb_list, comb)
+    }
+    
+    comb_strings <- sapply(comb_list, function(x) paste(sort(x), collapse = "-"))
+    return(comb_strings)
+  }
+
+
+ 
+  # Count total co-occurrences
+  total_co_occurrences <- co_occurrences %>%
+    group_by(pair) %>%
+    summarise(count = n(), .groups = 'drop')
+
+  # Split pairs into two columns for the circos plot
+  total_co_occurrences <- total_co_occurrences %>%
+    separate(pair, into = c("shock_type1", "shock_type2"), sep = "-")
+
+    total_co_occurrences %>% as.data.frame() %>% filter(shock_type1=="Air" | shock_type2=="Air")
+
+  shock_type_colors <- data %>% 
+    #mutate(shock_type = sub(" ", "\n", shock_type)) %>% 
+    group_by(shock_category, shock_type) %>%
+    summarise(count = n()) %>%
+    group_by(shock_category) %>%
+    mutate(shade = generate_shades(category_colors[shock_category], n())) %>%
+    ungroup() %>%
+    select(shock_category, shock_type, shade)
+
+  # Create a named vector for shock_type colors
+  shock_type_colors_vector <- setNames(shock_type_colors$shade, shock_type_colors$shock_type)
+  # Create a named vector for shock_type colors
+  shock_type_colors_vector <- setNames(shock_type_colors$shade, shock_type_colors$shock_type)
+
+
+
+  #ggsave("Co-occurrence_of_Shocks_by_Region_and_Category.png", dpi = 300)
+  #write.csv(total_co_occurrences,"total_co_occurrences.csv")
+
+  dev.off()
+  circos.clear()  # Clear any existing plots
+  windows()
+  library(svglite)
+  #svglite("co_occurrence_circos_plot4.svg", width = 20, height = 20)
+
+  circos.par(#"track.margin" = c(0.1, 0.1), "cell.padding" = c(0.02, 0.02, 0.02, 0.02),
+            "gap.degree" = 4)  # Increase gap 
+
+  total_co_occurrences <- total_co_occurrences %>%
+    mutate(shock_type1 = factor(shock_type1, levels = names(shock_type_colors_vector)),
+          shock_type2 = factor(shock_type2, levels = names(shock_type_colors_vector))) %>%
+    arrange(shock_type1, shock_type2)
+
+  chordDiagram(total_co_occurrences, 
+              transparency = 0.5, 
+              annotationTrack = "grid",
+              preAllocateTracks = list(track.height = 0.1),
+              grid.col = shock_type_colors_vector,  # Set sector colors
+              link.lwd = 2,  # Set link line width
+              link.border = shock_type_colors_vector)  # Set link border colors
+
+  # Add labels and colors
+  circos.trackPlotRegion(track.index = 1, panel.fun = function(x, y) {
+    sector.name = get.cell.meta.data("sector.index")
+    circos.text(CELL_META$xcenter, CELL_META$ylim[1], sector.name, 
+                facing = "clockwise", 
+                niceFacing = TRUE, adj = c(-0.1,0.5),cex=1.3)
+    #circos.axis(h = "top", labels.cex = 0.6, major.tick.percentage = 0.2)
+  }, bg.border = NA)
+
+
+  # Add title
+  title("Annual Co-occurrence of Shocks Within Countries")
+  #dev.copy(png, filename = "co_occurrence_circos_plot_4.pdf", width = 2000, height = 2000, res = 300)
+  dev.off()  # Close the device
+
+
+
+## Figure 5 Coocurrence Circos ---
+
+
+## Figure 6 Coocurrence Circos (timeseries) ---
+
+
+
+  # Identify co-occurrences by year and country
+  #co_occurrences <- 
+  # Identify co-occurrences by year and country
+  co_occurrences <- data_master %>% filter(count>0) %>% 
+    group_by(country, year, region) %>%
+    summarise(shock_types = list(shock_type), .groups = 'drop') %>%
+    filter(lengths(shock_types) > 1) %>%
+    mutate(pairs = map(shock_types, ~ combn(.x, 2, simplify = FALSE))) %>%
+    unnest(pairs) %>%
+    mutate(pair = map_chr(pairs, ~ paste(sort(.x), collapse = "-"))) %>%
+    select(country, year, region, pair)
+
+  glimpse(co_occurrences)
+
+  co_occurrences %>% filter(year==1971,region=="REF")
+  data_master %>% filter(year==1971,region=="REF")
+  # Split pairs into two columns for the shock types
+  co_occurrences <- co_occurrences %>%
+    separate(pair, into = c("shock_type1", "shock_type2"), sep = "-")
+
+  # Join the original data to get the shock categories for each shock type
+  data_shock_categories <- data_master %>% filter(count>0) %>%
+    select(shock_type, shock_category) %>%
+    distinct()
+
+  co_occurrences <- co_occurrences %>%
+    left_join(data_shock_categories, by = c("shock_type1" = "shock_type")) %>%
+    rename(shock_category1 = shock_category) %>%
+    left_join(data_shock_categories, by = c("shock_type2" = "shock_type")) %>%
+    rename(shock_category2 = shock_category)
+
+  glimpse(co_occurrences)
+  # Filter pairs to keep only those where the shock types are from different categories
+  co_occurrences_diff_cat <- co_occurrences %>%
+    filter(shock_category1 != shock_category2) %>% 
+    filter(!is.na(region))  %>% 
+    group_by(year, region) %>% summarise(count = n())%>% ungroup()
+  glimpse(co_occurrences_diff_cat)
+
+  ts <- data_master %>% 
+        group_by(year,region,country) %>% filter(count>0)%>% 
+        summarise(count = n()) %>%
+        summarise(total_shocks=count*(count-1)/2) %>% ungroup() %>% group_by(year,region) %>% 
+        summarise(total_shocks=sum(total_shocks,na.rm=TRUE)) %>% ungroup()
+        glimpse(ts)
+
+  dim_shocks <- data_master %>% group_by(shock_type) %>% summarise(n=n())%>% dim()
+  total_combinations <- dim_shocks[1]*(dim_shocks[1]-1)/2
+
+  data_master %>% filter(region=="REF",year==1971)%>% filter(count>0) %>%
+        group_by(year,region,country) %>% 
+        summarise(count = n()) %>%
+        summarise(total_shocks=count*(count-1)/2) %>% ungroup() %>% group_by(year,region) %>% 
+        summarise(total_shocks=sum(total_shocks,na.rm=TRUE)) %>% ungroup()
+        glimpse(ts)
+        
+
+
+  data_master %>% filter(region=="REF",year==1989) %>%
+        group_by(year,region,country) %>% 
+        summarise(total_shocks=count*(count-1)/2) %>% ungroup() 
+        
+  # Calculate the count of pairs of shocks from different categories and normalize by the total number of shocks
+  normalized_counts_diff <- co_occurrences_diff_cat %>% ungroup() %>% 
+    left_join(ts, by = c("year", "region")) %>%
+    mutate(normalized_count = count / total_shocks) %>% 
+    mutate(type="Different Shock Categories") %>% 
+    as.data.frame()
+
+
+  normalized_counts <- co_occurrences %>%
+    filter(!is.na(region)) %>% 
+    group_by(year, region) %>% summarise(count = n())%>% 
+    left_join(ts, by = c("year", "region")) %>%
+    mutate(normalized_count = count / total_shocks) %>% 
+    mutate(type="All Co-occurrences") %>% 
+    as.data.frame()
+
+  coocur <- rbind(normalized_counts_diff,normalized_counts)
+
+  ggplot(coocur,# %>% filter(type=="Different Shock Categories"), 
+    aes(x=year,y=100*count/total_combinations))+
+  geom_point(aes(size=total_shocks,color=region),alpha=0.4)+
+  facet_wrap(~type)+
+  theme_bw()+
+  ylab("Number of co-ocurrences") + 
+  labs(title="",
+      x="Year",
+      y="Co-ocurrences \n(% of Max)",
+      color="Region",
+      linetype="Type", size="Number of Shocks")+
+      guides(linetype="none") + 
+      scale_color_scico_d(palette = "batlow",begin=0.1,end=0.9,direction=-1) +
+  geom_hline(yintercept=100,linetype="dashed")+
+  geom_text(data=data.frame(x=1985,y=97),
+    aes(x=x,y=y,label="Maximum theoretical co-ocurrences"),size=2.4)
+    #ggsave("Co-ocurrences_of_shocks_by_region_and_type_2019.png", dpi = 300)
+
+## Figure 6 Coocurrence Circos (timeseries) ---
+
+
+## Figure Coocurrence Circos (by categories) ---
+
+
+
+  # Identify co-occurrences by year and country
+  co_occurrences <- data %>%
+    #mutate(shock_type = sub(" ", "\n", shock_type)) %>% 
+    group_by(country, year,region) %>%
+    summarise(shock_category = list(shock_category), .groups = 'drop') %>%
+    filter(lengths(shock_category) > 1) %>%
+    mutate(pairs = map(shock_category, ~ combn(.x, 2, simplify = FALSE))) %>%
+    unnest(pairs) %>%
+    mutate(pair = map_chr(pairs, ~ paste(sort(.x), collapse = "-"))) %>%
+    select(country, year, region, pair)
+  generate_combinations <- function(shock_category) {
+    comb_list <- list()
+    
+    for (i in 1:length(shock_category)) {
+      comb <- combn(shock_category, i, simplify = FALSE)
+      comb_list <- c(comb_list, comb)
+    }
+    
+    comb_strings <- sapply(comb_list, function(x) paste(sort(x), collapse = "-"))
+    return(comb_strings)
+  }
+
+
+ 
+  # Count total co-occurrences
+  total_co_occurrences <- co_occurrences %>%
+    group_by(pair) %>%
+    summarise(count = n(), .groups = 'drop')
+
+  # Split pairs into two columns for the circos plot
+  total_co_occurrences <- total_co_occurrences %>%
+    separate(pair, into = c("shock_category1", "shock_category2"), sep = "-")
+
+  shock_type_colors <- data %>% 
+    #mutate(shock_type = sub(" ", "\n", shock_type)) %>% 
+    group_by(shock_category) %>%
+    summarise(count = n()) %>%
+    group_by(shock_category) %>%
+    mutate(shade = generate_shades(category_colors[shock_category], n())) %>%
+    ungroup() %>%
+    select(shock_category,  shade)
+
+  # Create a named vector for shock_type colors
+  shock_type_colors_vector <- setNames(shock_type_colors$shade, shock_type_colors$shock_category)
+  # Create a named vector for shock_type colors
+  shock_type_colors_vector <- setNames(shock_type_colors$shade, shock_type_colors$shock_category)
+
+
+
+  #ggsave("Co-occurrence_of_Shocks_by_Region_and_Category.png", dpi = 300)
+  #write.csv(total_co_occurrences,"total_co_occurrences.csv")
+
+  dev.off()
+  circos.clear()  # Clear any existing plots
+  windows()
+  library(svglite)
+  svglite("co_occurrence_circos_plot_Categories.svg", width = 20, height = 20)
+
+  circos.par(#"track.margin" = c(0.1, 0.1), "cell.padding" = c(0.02, 0.02, 0.02, 0.02),
+            "gap.degree" = 4)  # Increase gap 
+
+  total_co_occurrences <- total_co_occurrences %>%
+    mutate(shock_category1 = factor(shock_category1, levels = names(shock_type_colors_vector)),
+          shock_category2 = factor(shock_category2, levels = names(shock_type_colors_vector))) %>%
+    arrange(shock_category1, shock_category2)
+
+  chordDiagram(total_co_occurrences, 
+              transparency = 0.5, 
+              annotationTrack = "grid",
+              preAllocateTracks = list(track.height = 0.1),
+              grid.col = shock_type_colors_vector,  # Set sector colors
+              link.lwd = 1,  # Set link line width
+              link.border = shock_type_colors_vector)  # Set link border colors
+
+  # Add labels and colors
+  circos.trackPlotRegion(track.index = 1, panel.fun = function(x, y) {
+    sector.name = get.cell.meta.data("sector.index")
+    circos.text(CELL_META$xcenter, CELL_META$ylim[1], sector.name, 
+                facing = "clockwise", 
+                niceFacing = TRUE, adj = c(-0.1,0.5),cex=1.3)
+    #circos.axis(h = "top", labels.cex = 0.6, major.tick.percentage = 0.2)
+  }, bg.border = NA)
+
+
+  # Add title
+  title("Annual Co-occurrence of Shocks Within Countries")
+  dev.copy(png, filename = "co_occurrence_circos_plot_4_categories.pdf", width = 2000, height = 2000, res = 300)
+  dev.off()  # Close the device
+
+
+
+## Figure Coocurrence Circos ---
+
+
+# Alternative Map Not Used in Main Text) (start)
   glimpse(data)
   data_c <- data %>% group_by(countrycode) %>% summarise(count=sum(count,na.rm=TRUE))
   data_c$count
@@ -263,323 +765,4 @@ setwd("C:/Users/basti/Documents/GitHub/Polycrisis-shocks")
                                 
 
     #ggsave("Filtered_Shocks_bottom.png", dpi = 300)
-
-# Figure 3 (Global Map of normalized shocks)
-
-  #libraries
-  library(terra)
-  library(readxl)
-  library(openxlsx)
-  library(dplyr)
-  library(tidyverse)
-  library(wbstats)  
-  library(countrycode)
-
-  #import shapefile of all countries
-
-  countries<-terra::vect("Data", layer="World_Countries__Generalized_")
-  countries$COUNTRY#check countries names
-  countries$ISO#namibia is not there as possible the system recognizes it as "na" given that the iso2 code is NA
-
-  countries$ISO3<-countrycode(countries$ISO,"iso2c","iso3c")#get ISO3 code out of IS02 Code
-  countries$ISO3
-  countries$ISO3[154]<-"NAM"#here we change the name of Namibia to iso3 code to avoid confusion with the "NA" string from the iso2 code
-
-  countries$COUNTRY<-tolower(countries$COUNTRY)#tolower case
-  plot(countries)
-
-  # import normalited shock data 
-
-  shocks<-read_csv("Z:/Global_Shocks/Data/Shock norm 1970-2013(in).csv")
-
-  shock_summ<-shocks%>% 
-    group_by(`Country name`)%>%
-    summarize(nr_of_events=sum(as.numeric(count)))
-
-  #transform country names into ISO3 code to be able to merge databases
-
-  shock_summ$ISO3<-countrycode(shock_summ$`Country name`,"country.name","iso3c")
-  shock_summ$`Country name`<-tolower(shock_summ$`Country name`)#to lower case
-  shock_summ$`Country name`<-gsub(" ", "", shock_summ$`Country name`)
-
-  #st_read("Data/World_Countries__Generalized_.shp")
-
-
-  #spatialize and merge databases
-  vector_countries<-terra::merge(countries,shock_summ, by="ISO3")
-  as.data.table(vector_countries)##check data
-  names(vector_countries)[c(7:8)]<-c("country_nam","nr_event")#name columns
-  plot(vector_countries)
-
-  glimpse(vector_countries)
-
-  # Convert SpatVector to sf object
-  vector_countries_sf <- st_as_sf(vector_countries)
-  # Divide the nr_event into 4 quantiles and create labels
-  vector_countries_sf <- vector_countries_sf %>%
-    mutate(quantile_label = ntile(nr_event, 5),
-          quantile_label = case_when(
-            quantile_label == 1 ~ "Low",
-            quantile_label == 2 ~ "Moderate",
-            quantile_label == 3 ~ "High",
-            quantile_label == 4 ~ "Very High",
-            quantile_label == 5 ~ "Severe"
-          ),
-         quantile_label = factor(quantile_label, levels = c("Low", "Moderate", "High","Very High", "Severe"))
-  )
-
-  # Plot using ggplot2 and scico palette
-  ggplot(data = vector_countries_sf) +
-    geom_sf(aes(fill = quantile_label), color = "white") +
-    theme_minimal() +
-    xlab("Longitude") +
-    ylab("Latitude") +
-    theme(legend.position = "right")+
-    scale_fill_scico_d(palette="lajolla",end=0.9,begin=0.2,direction=-1)+
-    coord_sf(crs = "+proj=robin") + # Robinson projection
-    theme_void() +
-    labs(fill = "No. of Shocks")
-  #ggsave("Figures/Number_Normalized_Shocks_Map2.png",dpi=300)
-  #Export as shapefile to visualize and edit in any GIS software
-
-  terra::writeVector(vector_countries,"Z:/Global_Shocks/spatial_data", layer="vector_countries", filetype = "ESRI Shapefile", overwrite = TRUE)
-
-# Figure 3 (Global Map of normalized shocks)
-
-
-### Figure 4 (Heatmap) ----
-  data %>%
-    group_by(year, region, shock_category) %>%
-    filter(!is.na(region)) %>%
-    summarise(total_shocks = sum(count, na.rm = TRUE), .groups = 'drop') %>%
-    # Calculate total shocks per region and year for normalization
-    group_by(year, shock_category) %>%
-    mutate(total_in_region = sum(total_shocks)) %>%
-    ungroup() %>%
-    # Calculate the proportion of each shock type
-    mutate(proportion = total_shocks / total_in_region) %>%
-    ggplot(aes(x = year, y = region, fill = proportion)) +
-    geom_tile() +
-    facet_grid(shock_category ~ ., scales = "free_y", space = "free_y") +  # Facet by shock type
-    labs(title = "",
-        x = "Year", y = "", fill = "Proportion of shocks \nper category per year") +
-    theme_minimal() +
-    theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1),
-          strip.text.y = element_text(angle = 0)) + # Rotate facet labels for better readability
-      scale_fill_scico(palette = 'lapaz',direction=-1) +
-      guides(fill = guide_legend(title = "Proportion of shocks \nper category per year",position="bottom",
-                                title.position = "top", hjust=0.5))
-
-  #ggsave("Shocks_by_Region_and_Category.jpg", dpi = 300)
-
-### Figure 4 (Heatmap) ----
-
-## Figure 5 Coocurrence Circos (diferent categories) ---
-
-
-
-  # Identify co-occurrences by year and country
-  co_occurrences <- data %>%
-    #mutate(shock_type = sub(" ", "\n", shock_type)) %>% 
-    group_by(country, year,region) %>%
-    summarise(shock_types = list(shock_type), .groups = 'drop') %>%
-    filter(lengths(shock_types) > 1) %>%
-    mutate(pairs = map(shock_types, ~ combn(.x, 2, simplify = FALSE))) %>%
-    unnest(pairs) %>%
-    mutate(pair = map_chr(pairs, ~ paste(sort(.x), collapse = "-"))) %>%
-    select(country, year, region, pair)
-
-  install.packages("combinat")
-  library(combinat)
-  generate_combinations <- function(shock_types) {
-    comb_list <- list()
-    
-    for (i in 1:length(shock_types)) {
-      comb <- combn(shock_types, i, simplify = FALSE)
-      comb_list <- c(comb_list, comb)
-    }
-    
-    comb_strings <- sapply(comb_list, function(x) paste(sort(x), collapse = "-"))
-    return(comb_strings)
-  }
-
-
- 
-  # Count total co-occurrences
-  total_co_occurrences <- co_occurrences %>%
-    group_by(pair) %>%
-    summarise(count = n(), .groups = 'drop')
-
-  # Split pairs into two columns for the circos plot
-  total_co_occurrences <- total_co_occurrences %>%
-    separate(pair, into = c("shock_type1", "shock_type2"), sep = "-")
-
-    total_co_occurrences %>% as.data.frame() %>% filter(shock_type1=="Air" | shock_type2=="Air")
-
-  shock_type_colors <- data %>% 
-    #mutate(shock_type = sub(" ", "\n", shock_type)) %>% 
-    group_by(shock_category, shock_type) %>%
-    summarise(count = n()) %>%
-    group_by(shock_category) %>%
-    mutate(shade = generate_shades(category_colors[shock_category], n())) %>%
-    ungroup() %>%
-    select(shock_category, shock_type, shade)
-
-  # Create a named vector for shock_type colors
-  shock_type_colors_vector <- setNames(shock_type_colors$shade, shock_type_colors$shock_type)
-  # Create a named vector for shock_type colors
-  shock_type_colors_vector <- setNames(shock_type_colors$shade, shock_type_colors$shock_type)
-
-
-
-  #ggsave("Co-occurrence_of_Shocks_by_Region_and_Category.png", dpi = 300)
-  #write.csv(total_co_occurrences,"total_co_occurrences.csv")
-
-  dev.off()
-  circos.clear()  # Clear any existing plots
-  windows()
-  library(svglite)
-  #svglite("co_occurrence_circos_plot4.svg", width = 20, height = 20)
-
-  circos.par(#"track.margin" = c(0.1, 0.1), "cell.padding" = c(0.02, 0.02, 0.02, 0.02),
-            "gap.degree" = 4)  # Increase gap 
-
-  total_co_occurrences <- total_co_occurrences %>%
-    mutate(shock_type1 = factor(shock_type1, levels = names(shock_type_colors_vector)),
-          shock_type2 = factor(shock_type2, levels = names(shock_type_colors_vector))) %>%
-    arrange(shock_type1, shock_type2)
-
-  chordDiagram(total_co_occurrences, 
-              transparency = 0.5, 
-              annotationTrack = "grid",
-              preAllocateTracks = list(track.height = 0.1),
-              grid.col = shock_type_colors_vector,  # Set sector colors
-              link.lwd = 2,  # Set link line width
-              link.border = shock_type_colors_vector)  # Set link border colors
-
-  # Add labels and colors
-  circos.trackPlotRegion(track.index = 1, panel.fun = function(x, y) {
-    sector.name = get.cell.meta.data("sector.index")
-    circos.text(CELL_META$xcenter, CELL_META$ylim[1], sector.name, 
-                facing = "clockwise", 
-                niceFacing = TRUE, adj = c(-0.1,0.5),cex=1.3)
-    #circos.axis(h = "top", labels.cex = 0.6, major.tick.percentage = 0.2)
-  }, bg.border = NA)
-
-
-  # Add title
-  title("Annual Co-occurrence of Shocks Within Countries")
-  #dev.copy(png, filename = "co_occurrence_circos_plot_4.pdf", width = 2000, height = 2000, res = 300)
-  dev.off()  # Close the device
-
-
-
-## Figure 5 Coocurrence Circos ---
-
-
-
-
-
-## Figure 6 Coocurrence Circos (diferent categories) ---
-
-
-
-  # Identify co-occurrences by year and country
-  #co_occurrences <- 
-  # Identify co-occurrences by year and country
-  co_occurrences <- data_master %>% filter(count>0) %>% 
-    group_by(country, year, region) %>%
-    summarise(shock_types = list(shock_type), .groups = 'drop') %>%
-    filter(lengths(shock_types) > 1) %>%
-    mutate(pairs = map(shock_types, ~ combn(.x, 2, simplify = FALSE))) %>%
-    unnest(pairs) %>%
-    mutate(pair = map_chr(pairs, ~ paste(sort(.x), collapse = "-"))) %>%
-    select(country, year, region, pair)
-
-  glimpse(co_occurrences)
-
-  co_occurrences %>% filter(year==1971,region=="REF")
-  data_master %>% filter(year==1971,region=="REF")
-  # Split pairs into two columns for the shock types
-  co_occurrences <- co_occurrences %>%
-    separate(pair, into = c("shock_type1", "shock_type2"), sep = "-")
-
-  # Join the original data to get the shock categories for each shock type
-  data_shock_categories <- data_master %>% filter(count>0) %>%
-    select(shock_type, shock_category) %>%
-    distinct()
-
-  co_occurrences <- co_occurrences %>%
-    left_join(data_shock_categories, by = c("shock_type1" = "shock_type")) %>%
-    rename(shock_category1 = shock_category) %>%
-    left_join(data_shock_categories, by = c("shock_type2" = "shock_type")) %>%
-    rename(shock_category2 = shock_category)
-
-  glimpse(co_occurrences)
-  # Filter pairs to keep only those where the shock types are from different categories
-  co_occurrences_diff_cat <- co_occurrences %>%
-    filter(shock_category1 != shock_category2) %>% 
-    filter(!is.na(region))  %>% 
-    group_by(year, region) %>% summarise(count = n())%>% ungroup()
-  glimpse(co_occurrences_diff_cat)
-
-  ts <- data_master %>% 
-        group_by(year,region,country) %>% filter(count>0)%>% 
-        summarise(count = n()) %>%
-        summarise(total_shocks=count*(count-1)/2) %>% ungroup() %>% group_by(year,region) %>% 
-        summarise(total_shocks=sum(total_shocks,na.rm=TRUE)) %>% ungroup()
-        glimpse(ts)
-
-  dim_shocks <- data_master %>% group_by(shock_type) %>% summarise(n=n())%>% dim()
-  total_combinations <- dim_shocks[1]*(dim_shocks[1]-1)/2
-
-  data_master %>% filter(region=="REF",year==1971)%>% filter(count>0) %>%
-        group_by(year,region,country) %>% 
-        summarise(count = n()) %>%
-        summarise(total_shocks=count*(count-1)/2) %>% ungroup() %>% group_by(year,region) %>% 
-        summarise(total_shocks=sum(total_shocks,na.rm=TRUE)) %>% ungroup()
-        glimpse(ts)
-        
-
-
-  data_master %>% filter(region=="REF",year==1989) %>%
-        group_by(year,region,country) %>% 
-        summarise(total_shocks=count*(count-1)/2) %>% ungroup() 
-        
-  # Calculate the count of pairs of shocks from different categories and normalize by the total number of shocks
-  normalized_counts_diff <- co_occurrences_diff_cat %>% ungroup() %>% 
-    left_join(ts, by = c("year", "region")) %>%
-    mutate(normalized_count = count / total_shocks) %>% 
-    mutate(type="Different Shock Categories") %>% 
-    as.data.frame()
-
-
-  normalized_counts <- co_occurrences %>%
-    filter(!is.na(region)) %>% 
-    group_by(year, region) %>% summarise(count = n())%>% 
-    left_join(ts, by = c("year", "region")) %>%
-    mutate(normalized_count = count / total_shocks) %>% 
-    mutate(type="All Co-occurrences") %>% 
-    as.data.frame()
-
-  coocur <- rbind(normalized_counts_diff,normalized_counts)
-
-  ggplot(coocur,# %>% filter(type=="Different Shock Categories"), 
-    aes(x=year,y=100*count/total_combinations))+
-  geom_point(aes(size=total_shocks,color=region),alpha=0.4)+
-  facet_wrap(~type)+
-  theme_bw()+
-  ylab("Number of co-ocurrences") + 
-  labs(title="",
-      x="Year",
-      y="Co-ocurrences \n(% of Max)",
-      color="Region",
-      linetype="Type", size="Number of Shocks")+
-      guides(linetype="none") + 
-      scale_color_scico_d(palette = "batlow",begin=0.1,end=0.9,direction=-1) +
-  geom_hline(yintercept=100,linetype="dashed")+
-  geom_text(data=data.frame(x=1985,y=97),
-    aes(x=x,y=y,label="Maximum theoretical co-ocurrences"),size=2.4)
-    #ggsave("Co-ocurrences_of_shocks_by_region_and_type.png", dpi = 300)
-
-## Figure 6 Coocurrence Circos (diferent categories) ---
+# Figure of Filters Not Used in Main Text)
