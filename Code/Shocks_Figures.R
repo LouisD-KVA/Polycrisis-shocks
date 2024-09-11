@@ -250,7 +250,7 @@ setwd("C:/Users/basti/Documents/GitHub/Polycrisis-shocks")
 
   # import normalited shock data 
 
-  shocks<-read_csv("Z:/Global_Shocks/Data/Shock norm 1970-2013(in).csv")
+  shocks<-read_csv("Z:/Global_Shocks/Data/Shock norm.csv")
 
   shock_summ<-shocks%>% 
     group_by(`Country name`)%>%
