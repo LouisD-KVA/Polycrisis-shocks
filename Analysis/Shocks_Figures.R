@@ -216,7 +216,7 @@ data_bycat <- data %>% group_by(shock_category,year,countrycode,region) %>% summ
   countries$COUNTRY<-tolower(countries$COUNTRY)#tolower case
   plot(countries)
 
-  # import normalited shock data 
+  # import normalized shock data 
 
   shocks<-read_csv("Z:/Global_Shocks/Shock norm.csv")
 
@@ -232,6 +232,9 @@ data_bycat <- data %>% group_by(shock_category,year,countrycode,region) %>% summ
 
   #st_read("World_Countries__Generalized_.shp")
 
+#add population density data to "shock_summ"
+pop_density<-read.xlsx("Z:/Global_Shocks/Data/db_pledges_all.xlsx")##change depending on where database is on your computers
+shock_summ<-merge(shock_summ,pop_density, by="ISO3")#merge shock_summ and pop_density 
 
   #spatialize and merge databases
   vector_countries<-terra::merge(countries,shock_summ, by="ISO3")
