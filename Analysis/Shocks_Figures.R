@@ -234,7 +234,7 @@ data_bycat <- data %>% group_by(shock_category,year,countrycode,region) %>% summ
 
 #add population density data to "shock_summ"
 pop_density<-read.xlsx("Z:/Global_Shocks/Data/db_pledges_all.xlsx")##change depending on where database is on your computers
-shock_summ<-merge(shock_summ,pop_density, by="ISO3")#merge shock_summ and pop_density 
+shock_summ<-merge(shock_summ,pop_density, by="ISO3")#merge shock_summ and pop_density.
 
   #spatialize and merge databases
   vector_countries<-terra::merge(countries,shock_summ, by="ISO3")
@@ -248,7 +248,7 @@ shock_summ<-merge(shock_summ,pop_density, by="ISO3")#merge shock_summ and pop_de
   vector_countries_sf <- st_as_sf(vector_countries)
   # Divide the nr_event into 4 quantiles and create labels
   vector_countries_sf <- vector_countries_sf %>%
-    mutate(quantile_label = ntile(nr_event, 5),
+    mutate(quantile_label = ntile(pop_density, 5),
           quantile_label = case_when(
             quantile_label == 1 ~ "Low",
             quantile_label == 2 ~ "Moderate",
@@ -269,7 +269,7 @@ shock_summ<-merge(shock_summ,pop_density, by="ISO3")#merge shock_summ and pop_de
     scale_fill_scico_d(palette="lajolla",end=0.9,begin=0.2,direction=-1)+
     coord_sf(crs = "+proj=robin") + # Robinson projection
     theme_void() +
-    labs(fill = "No. of Shocks")
+    labs(fill = "No. of Shocks by population density")
   #ggsave("Figures/Number_Normalized_Shocks_Map2.png",dpi=300)
   #Export as shapefile to visualize and edit in any GIS software
 
