@@ -349,7 +349,7 @@ setwd("C:/Users/basti/Documents/GitHub/Polycrisis-shocks")
     mutate(pair = map_chr(pairs, ~ paste(sort(.x), collapse = "-"))) %>%
     select(country, year, region, pair)
 
-  install.packages("combinat")
+  #install.packages("combinat")
   library(combinat)
   generate_combinations <- function(shock_types) {
     comb_list <- list()
@@ -398,8 +398,8 @@ setwd("C:/Users/basti/Documents/GitHub/Polycrisis-shocks")
   dev.off()
   circos.clear()  # Clear any existing plots
   windows()
-  library(svglite)
-  #svglite("co_occurrence_circos_plot4.svg", width = 20, height = 20)
+  #library(svglite)
+  #svglite("co_occurrence_circos_plot5_2019.svg", width = 20, height = 20)
 
   circos.par(#"track.margin" = c(0.1, 0.1), "cell.padding" = c(0.02, 0.02, 0.02, 0.02),
             "gap.degree" = 4)  # Increase gap 
@@ -539,7 +539,172 @@ setwd("C:/Users/basti/Documents/GitHub/Polycrisis-shocks")
     aes(x=x,y=y,label="Maximum theoretical co-ocurrences"),size=2.4)
     #ggsave("Co-ocurrences_of_shocks_by_region_and_type_2019.png", dpi = 300)
 
+
+
+  plot_coocurrence_ts_all <- ggplot(coocur,# %>% filter(type=="Different Shock Categories"), 
+    aes(x=year,y=100*count/total_combinations))+
+  #geom_point(aes(size=total_shocks,color=region),alpha=0.4)+
+  facet_wrap(~type)+
+  geom_smooth(aes(color=region))+
+  theme_bw()+
+  ylab("Number of co-ocurrences") + 
+  labs(title="",
+      x="Year",
+      y="Co-ocurrences \n(% of Max)",
+      color="Region",
+      linetype="Type", size="Number of Shocks")+
+      guides(linetype="none") + 
+      scale_color_scico_d(palette = "batlow",begin=0.1,end=0.9,direction=-1) +
+  geom_hline(yintercept=100,linetype="dashed")+
+  geom_text(data=data.frame(x=1985,y=97),
+    aes(x=x,y=y,label="Maximum theoretical co-ocurrences"),size=2.4)
+    #ggsave("Co-ocurrences_of_shocks_by_region_and_type_2019_loess.png", dpi = 300)
+
+
+  glimpse(coocur)
+  library(lfe)
+  felm(I(100*count/total_combinations) ~  year:type|0|0|0,data=coocur)
+
 ## Figure 6 Coocurrence Circos (timeseries) ---
+
+## Figure 6b Coocurrence Circos (timeseries) ---
+
+
+
+  # Identify co-occurrences by year and country
+  #co_occurrences <- 
+  # Identify co-occurrences by year and country
+  glimpse(data_master)
+  levels(factor(data_master$shock_category))
+  co_occurrences <- data_master %>% filter(count>0, shock_category != "Geophysical", shock_category != "Technological") %>% 
+    group_by(country, year, region) %>%
+    summarise(shock_types = list(shock_type), .groups = 'drop') %>%
+    filter(lengths(shock_types) > 1) %>%
+    mutate(pairs = map(shock_types, ~ combn(.x, 2, simplify = FALSE))) %>%
+    unnest(pairs) %>%
+    mutate(pair = map_chr(pairs, ~ paste(sort(.x), collapse = "-"))) %>%
+    select(country, year, region, pair)
+
+  glimpse(co_occurrences)
+
+  co_occurrences %>% filter(year==1971,region=="REF")
+  data_master %>% filter(year==1971,region=="REF")
+  # Split pairs into two columns for the shock types
+  co_occurrences <- co_occurrences %>%
+    separate(pair, into = c("shock_type1", "shock_type2"), sep = "-")
+
+  # Join the original data to get the shock categories for each shock type
+  data_shock_categories <- data_master %>%filter(count>0, shock_category != "Geophysical", shock_category != "Technological") %>%
+    select(shock_type, shock_category) %>%
+    distinct()
+
+  co_occurrences <- co_occurrences %>%
+    left_join(data_shock_categories, by = c("shock_type1" = "shock_type")) %>%
+    rename(shock_category1 = shock_category) %>%
+    left_join(data_shock_categories, by = c("shock_type2" = "shock_type")) %>%
+    rename(shock_category2 = shock_category)
+
+  glimpse(co_occurrences)
+  # Filter pairs to keep only those where the shock types are from different categories
+  co_occurrences_diff_cat <- co_occurrences %>%
+    filter(shock_category1 != shock_category2) %>% 
+    filter(!is.na(region))  %>% 
+    group_by(year, region) %>% summarise(count = n())%>% ungroup()
+  glimpse(co_occurrences_diff_cat)
+
+  ts <- data_master%>% filter(count>0, shock_category != "Geophysical", shock_category != "Technological") %>% 
+        group_by(year,region,country) %>% filter(count>0)%>% 
+        summarise(count = n()) %>%
+        summarise(total_shocks=count*(count-1)/2) %>% ungroup() %>% group_by(year,region) %>% 
+        summarise(total_shocks=sum(total_shocks,na.rm=TRUE)) %>% ungroup()
+        glimpse(ts)
+
+  dim_shocks <- data_master %>% group_by(shock_type) %>% summarise(n=n())%>% dim()
+  total_combinations <- dim_shocks[1]*(dim_shocks[1]-1)/2
+
+  data_master %>% filter(region=="REF",year==1971)%>% filter(count>0) %>%
+        group_by(year,region,country) %>% 
+        summarise(count = n()) %>%
+        summarise(total_shocks=count*(count-1)/2) %>% ungroup() %>% group_by(year,region) %>% 
+        summarise(total_shocks=sum(total_shocks,na.rm=TRUE)) %>% ungroup()
+        glimpse(ts)
+        
+
+
+  data_master %>% filter(region=="REF",year==1989) %>%
+        group_by(year,region,country) %>% 
+        summarise(total_shocks=count*(count-1)/2) %>% ungroup() 
+        
+  # Calculate the count of pairs of shocks from different categories and normalize by the total number of shocks
+  normalized_counts_diff <- co_occurrences_diff_cat %>% ungroup() %>% 
+    left_join(ts, by = c("year", "region")) %>%
+    mutate(normalized_count = count / total_shocks) %>% 
+    mutate(type="Different Shock Categories") %>% 
+    as.data.frame()
+
+
+  normalized_counts <- co_occurrences %>%
+    filter(!is.na(region)) %>% 
+    group_by(year, region) %>% summarise(count = n())%>% 
+    left_join(ts, by = c("year", "region")) %>%
+    mutate(normalized_count = count / total_shocks) %>% 
+    mutate(type="All Co-occurrences") %>% 
+    as.data.frame()
+
+  coocur <- rbind(normalized_counts_diff,normalized_counts)
+
+  ggplot(coocur,# %>% filter(type=="Different Shock Categories"), 
+    aes(x=year,y=100*count/total_combinations))+
+  geom_point(aes(size=total_shocks,color=region),alpha=0.4)+
+  facet_wrap(~type)+
+  theme_bw()+
+  ylab("Number of co-ocurrences") + 
+  labs(title="",
+      x="Year",
+      y="Co-ocurrences \n(% of Max)",
+      color="Region",
+      linetype="Type", size="Number of Shocks")+
+      guides(linetype="none") + 
+      scale_color_scico_d(palette = "batlow",begin=0.1,end=0.9,direction=-1) +
+  geom_hline(yintercept=100,linetype="dashed")+
+  geom_text(data=data.frame(x=1985,y=97),
+    aes(x=x,y=y,label="Maximum theoretical co-ocurrences"),size=2.4)
+    #ggsave("Co-ocurrences_of_shocks_by_region_and_type_2019.png", dpi = 300)
+
+
+
+  plot_coocurrence_ts_nogeo_notech <- ggplot(coocur,# %>% filter(type=="Different Shock Categories"), 
+    aes(x=year,y=100*count/total_combinations))+
+  #geom_point(aes(size=total_shocks,color=region),alpha=0.4)+
+  facet_wrap(~type)+
+  geom_smooth(aes(color=region))+
+  theme_bw()+
+  ylab("Number of co-ocurrences") + 
+  labs(title="",
+      x="Year",
+      y="Co-ocurrences \n(% of Max)",
+      color="Region",
+      linetype="Type", size="Number of Shocks")+
+      guides(linetype="none") + 
+     scale_color_scico_d(palette = "batlow",begin=0.1,end=0.9,direction=-1) 
+  #geom_hline(yintercept=100,linetype="dashed")+
+  #geom_text(data=data.frame(x=1985,y=97),
+   # aes(x=x,y=y,label="Maximum theoretical co-ocurrences"),size=2.4)
+    #ggsave("Co-ocurrences_of_shocks_by_region_and_type_2019_loess.png", dpi = 300)
+
+
+  glimpse(coocur)
+  library(lfe)
+  felm(I(100*count/total_combinations) ~  year:type|0|0|0,data=coocur)
+  library(ggpubr)
+  ggarrange(plot_coocurrence_ts_all+labs(title="All Shock Categories"),
+    plot_coocurrence_ts_nogeo_notech+labs(title="Excluging Geophysical and Technological Shocks"),
+    ncol=1,common.legend=TRUE,legend="right")
+  ggsave("Figures/Fug7_4panels.png",dpi=300)
+
+  plot_coocurrence_ts_all
+  ggsave("Figures/New_Fig7_2panels.png",dpi=300)
+## Figure 6b Coocurrence Circos (timeseries) ---
 
 
 ## Figure Coocurrence Circos (by categories) ---
@@ -601,8 +766,8 @@ setwd("C:/Users/basti/Documents/GitHub/Polycrisis-shocks")
   dev.off()
   circos.clear()  # Clear any existing plots
   windows()
-  library(svglite)
-  svglite("co_occurrence_circos_plot_Categories.svg", width = 20, height = 20)
+  #library(svglite)
+  #svglite("co_occurrence_circos_plot_Categories_2019.svg", width = 20, height = 20)
 
   circos.par(#"track.margin" = c(0.1, 0.1), "cell.padding" = c(0.02, 0.02, 0.02, 0.02),
             "gap.degree" = 4)  # Increase gap 
@@ -632,7 +797,6 @@ setwd("C:/Users/basti/Documents/GitHub/Polycrisis-shocks")
 
   # Add title
   title("Annual Co-occurrence of Shocks Within Countries")
-  dev.copy(png, filename = "co_occurrence_circos_plot_4_categories.pdf", width = 2000, height = 2000, res = 300)
   dev.off()  # Close the device
 
 
