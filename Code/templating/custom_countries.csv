@@ -1,8 +1,0 @@
-name_short	name_official	regex	ISO2	ISO3	ISOnumeric	UNcode	FAOcode	GBDcode	continent	Continent_7	UNregion	EXIO1	EXIO2	EXIO3	EXIO1_3L	EXIO2_3L	EXIO3_3L	WIOD	Eora	MESSAGE	IMAGE	REMIND	OECD	EU	EU28	EU27	EU27_2007	EU25	EU15	EU12	EEA	Schengen	EURO	UN	UNmember	obsolete	Cecilia2050	BRIC	APEC	BASIC	CIS	G7	G20	IEA	DACcode	ccTLD	GWcode	CC41	IOC
-Serbia and Montenegro	Serbia and Montenegro	serbia.+montenegro	X1																																														
-East Germany	German Democratic Republic	(east germany|german democratic republic)	DD	DDR																																													
-West Germany	West Germany	west germany	X3																																														
-Yugoslavia	Yugoslavia	yugoslav	X4																																														
-Yemen	Republic of Yemen	^(?!n|s).*yemen	YE	YEM	887	887	249	157	Asia	Asia	Western Asia	WW	WM	WM	WWW	WWM	WWM	RoW	YEM	MEA	Middle East	MEA												1947	1947		RoW							Yemen	580	ye	680	Rest of World	YEM
-North Yemen	North Yemen	north yemen	X5																																														
-South Yemen	South Yemen	south yemen	X6																																														
