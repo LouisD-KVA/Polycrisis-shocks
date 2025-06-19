@@ -33,10 +33,10 @@ data_present <- read_csv("Data/Shocks.csv") %>%
   
 data <- data_present %>% filter(year < 2020)
 
-shocks<-read.csv("Data/Norm_Shocks.csv", sep = ",") %>%
-separate(Country.name.Year.Shock.category.Shock.type.count, into = c("Country name", "Year", "Shock category", "Shock type", "count"), sep = ",")
+shocks<-read.csv("Data/Norm_Shocks.csv", sep = ",") #%>%
+#separate(Country.name.Year.Shock.category.Shock.type.count, into = c("Country name", "Year", "Shock category", "Shock type", "count"), sep = ",")
 
-regions <-  read_csv("r5regions.csv") %>% rename(region = Column1, countrycode=Column2)
+regions <-  read_csv("Data/r5regions.csv") %>% rename(region = Column1, countrycode=Column2)
 glimpse(regions)
 
 data <- left_join(data, regions, by = "countrycode") %>%
@@ -232,9 +232,9 @@ data_bycat <- data %>% group_by(shock_category,year,countrycode,region) %>% summ
 
   #st_read("World_Countries__Generalized_.shp")
 
-#add population density data to "shock_summ"
-pop_density<-read.xlsx("Z:/Global_Shocks/Data/db_pledges_all.xlsx")##change depending on where database is on your computers
-shock_summ<-merge(shock_summ,pop_density, by="ISO3")#merge shock_summ and pop_density.
+  #add population density data to "shock_summ"
+  pop_density<-read.xlsx("Z:/Global_Shocks/Data/db_pledges_all.xlsx")##change depending on where database is on your computers
+  shock_summ<-merge(shock_summ,pop_density, by="ISO3")#merge shock_summ and pop_density.
 
   #spatialize and merge databases
   vector_countries<-terra::merge(countries,shock_summ, by="ISO3")
@@ -415,13 +415,32 @@ shock_summ<-merge(shock_summ,pop_density, by="ISO3")#merge shock_summ and pop_de
   # Identify co-occurrences by year and country
   #co_occurrences <- 
   # Identify co-occurrences by year and country
+  glimpse(data_master)
+  
+  example_a <-  data_master %>% filter(count>0) %>% 
+    group_by(country, year, region) %>%
+    summarise(shock_types = list(shock_type), .groups = 'drop')%>% #This gives me the list of shock types in a year
+    filter(lengths(shock_types) > 1) %>% #This filters for cases where there is more than 1 shock
+     mutate(pairs = map(shock_types, ~ combn(.x, 2, simplify = FALSE)))
+  example_a$shock_types[[3]]
+  example_a$pairs[[3]]
+
+  example_b <-  data_master %>% filter(count>0) %>% 
+    group_by(country, year, region) %>%
+    summarise(shock_types = list(shock_type), .groups = 'drop')%>% #This gives me the list of shock types in a year
+    filter(lengths(shock_types) > 1) %>% #This filters for cases where there is more than 1 shock
+     mutate(pairs = map(shock_types, ~ combn(.x, 2, simplify = FALSE))) %>% #This makes a loist where each element is a combination
+    unnest(pairs) %>%
+    mutate(pair = map_chr(pairs, ~ paste(sort(.x), collapse = "-")))
+  example_b  
+  
   co_occurrences <- data_master %>% filter(count>0) %>% 
     group_by(country, year, region) %>%
-    summarise(shock_types = list(shock_type), .groups = 'drop') %>%
-    filter(lengths(shock_types) > 1) %>%
-    mutate(pairs = map(shock_types, ~ combn(.x, 2, simplify = FALSE))) %>%
-    unnest(pairs) %>%
-    mutate(pair = map_chr(pairs, ~ paste(sort(.x), collapse = "-"))) %>%
+    summarise(shock_types = list(shock_type), .groups = 'drop') %>% #This gives me the list of shock types in a year
+    filter(lengths(shock_types) > 1) %>% #This filters for cases where there is more than 1 shock
+    mutate(pairs = map(shock_types, ~ combn(.x, 2, simplify = FALSE))) %>% #This makes a loist where each element is a combination
+    unnest(pairs) %>% #repeats the year x country for each pair
+    mutate(pair = map_chr(pairs, ~ paste(sort(.x), collapse = "-"))) %>% #creates a new variable that shows the combination in a string
     select(country, year, region, pair)
 
   glimpse(co_occurrences)
@@ -431,6 +450,7 @@ shock_summ<-merge(shock_summ,pop_density, by="ISO3")#merge shock_summ and pop_de
   # Split pairs into two columns for the shock types
   co_occurrences <- co_occurrences %>%
     separate(pair, into = c("shock_type1", "shock_type2"), sep = "-")
+
 
   # Join the original data to get the shock categories for each shock type
   data_shock_categories <- data_master %>% filter(count>0) %>%
@@ -444,6 +464,7 @@ shock_summ<-merge(shock_summ,pop_density, by="ISO3")#merge shock_summ and pop_de
     rename(shock_category2 = shock_category)
 
   glimpse(co_occurrences)
+  
   # Filter pairs to keep only those where the shock types are from different categories
   co_occurrences_diff_cat <- co_occurrences %>%
     filter(shock_category1 != shock_category2) %>% 
@@ -454,19 +475,21 @@ shock_summ<-merge(shock_summ,pop_density, by="ISO3")#merge shock_summ and pop_de
   ts <- data_master %>% 
         group_by(year,region,country) %>% filter(count>0)%>% 
         summarise(count = n()) %>%
-        summarise(total_shocks=count*(count-1)/2) %>% ungroup() %>% group_by(year,region) %>% 
+        summarise(total_shocks=count*(count-1)/2) %>% #used to calculate the number of unique pairs that can be formed from a set of 𝑛 n elements  
+        # Total shocks is the potential number of cross-category shocks, or the total number       
+        ungroup() %>% group_by(year,region) %>% 
         summarise(total_shocks=sum(total_shocks,na.rm=TRUE)) %>% ungroup()
         glimpse(ts)
 
   dim_shocks <- data_master %>% group_by(shock_type) %>% summarise(n=n())%>% dim()
-  total_combinations <- dim_shocks[1]*(dim_shocks[1]-1)/2
+  total_combinations <- dim_shocks[1]*(dim_shocks[1]-1)/2 #Total combinations of any shock
 
   data_master %>% filter(region=="REF",year==1971)%>% filter(count>0) %>%
         group_by(year,region,country) %>% 
         summarise(count = n()) %>%
         summarise(total_shocks=count*(count-1)/2) %>% ungroup() %>% group_by(year,region) %>% 
         summarise(total_shocks=sum(total_shocks,na.rm=TRUE)) %>% ungroup()
-        glimpse(ts)
+  glimpse(ts)
         
 
 
@@ -477,7 +500,7 @@ shock_summ<-merge(shock_summ,pop_density, by="ISO3")#merge shock_summ and pop_de
   # Calculate the count of pairs of shocks from different categories and normalize by the total number of shocks
   normalized_counts_diff <- co_occurrences_diff_cat %>% ungroup() %>% 
     left_join(ts, by = c("year", "region")) %>%
-    mutate(normalized_count = count / total_shocks) %>% 
+    mutate(normalized_count = count / total_shocks) %>%  #Dividing the shocks of different categories by the potential shocks
     mutate(type="Different Shock Categories") %>% 
     as.data.frame()
 
@@ -490,10 +513,13 @@ shock_summ<-merge(shock_summ,pop_density, by="ISO3")#merge shock_summ and pop_de
     mutate(type="All Co-occurrences") %>% 
     as.data.frame()
 
-  coocur <- rbind(normalized_counts_diff,normalized_counts)
+  
+  tot_comb_reg <- regions %>% group_by(region) %>% mutate(region = sub("R5", "", region)) %>% summarise(countries_per_region = n()) %>% mutate(total_combinations_r=total_combinations*countries_per_region)
+  coocur <- rbind(normalized_counts_diff,normalized_counts) %>% left_join(tot_comb_reg, by="region")
 
   ggplot(coocur,# %>% filter(type=="Different Shock Categories"), 
-    aes(x=year,y=100*count/total_combinations))+
+    #aes(x=year,y=100*count/total_combinations))+
+    aes(x=year,y=100*count/total_combinations_r))+
   geom_point(aes(size=total_shocks,color=region),alpha=0.4)+
   facet_wrap(~type)+
   theme_bw()+
@@ -513,7 +539,8 @@ shock_summ<-merge(shock_summ,pop_density, by="ISO3")#merge shock_summ and pop_de
 
 
   plot_coocurrence_ts_all <- ggplot(coocur,# %>% filter(type=="Different Shock Categories"), 
-    aes(x=year,y=100*count/total_combinations))+
+    #aes(x=year,y=100*count/total_combinations))+
+    aes(x=year,y=100*count/total_combinations_r))+
   #geom_point(aes(size=total_shocks,color=region),alpha=0.4)+
   facet_wrap(~type)+
   geom_smooth(aes(color=region))+
@@ -525,11 +552,12 @@ shock_summ<-merge(shock_summ,pop_density, by="ISO3")#merge shock_summ and pop_de
       color="Region",
       linetype="Type", size="Number of Shocks")+
       guides(linetype="none") + 
-      scale_color_scico_d(palette = "batlow",begin=0.1,end=0.9,direction=-1) +
-  geom_hline(yintercept=100,linetype="dashed")+
-  geom_text(data=data.frame(x=1985,y=97),
-    aes(x=x,y=y,label="Maximum theoretical co-ocurrences"),size=2.4)
-    #ggsave("Co-ocurrences_of_shocks_by_region_and_type_2019_loess.png", dpi = 300)
+      scale_color_scico_d(palette = "batlow",begin=0.1,end=0.9,direction=-1) #+
+  #geom_hline(yintercept=100,linetype="dashed")+
+  #geom_text(data=data.frame(x=1985,y=97),
+    #aes(x=x,y=y,label="Maximum theoretical co-ocurrences"),size=2.4)
+    plot_coocurrence_ts_all
+    ggsave("Co-ocurrences_of_shocks_by_region_and_type_2019_loess_correctedJune2025.png", dpi = 300)
 
 
   glimpse(coocur)
@@ -592,6 +620,8 @@ shock_summ<-merge(shock_summ,pop_density, by="ISO3")#merge shock_summ and pop_de
 
   dim_shocks <- data_master %>% group_by(shock_type) %>% summarise(n=n())%>% dim()
   total_combinations <- dim_shocks[1]*(dim_shocks[1]-1)/2
+  
+  tot_comb_reg <- regions %>% group_by(region) %>% summarise(countries_per_region = n()) %>% mutate(total_combinations_r=total_combinations*countries_per_region)
 
   data_master %>% filter(region=="REF",year==1971)%>% filter(count>0) %>%
         group_by(year,region,country) %>% 
@@ -623,6 +653,7 @@ shock_summ<-merge(shock_summ,pop_density, by="ISO3")#merge shock_summ and pop_de
     as.data.frame()
 
   coocur <- rbind(normalized_counts_diff,normalized_counts)
+  glimpse(coocur)
 
   ggplot(coocur,# %>% filter(type=="Different Shock Categories"), 
     aes(x=year,y=100*count/total_combinations))+
