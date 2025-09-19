@@ -4,12 +4,11 @@
 
 # FIGURES INDEX
 # Figure 2: Line 84 to Line 165
-# Figure 3: Line 227 to Line 307
-# Figure 4: Line 310 to Line 335
-# Figure 5: Line 337 to Line 437
-# Figure 6: Line 440 to Line 542
-# Additional Figures: From 545
-setwd("C:/Users/basti/Documents/GitHub/Polycrisis-shocks")
+# Figure 3: Line 195 to Line 278
+# Figure 4: Line 281 to Line 306
+# Figure 5: Line 308 to Line 408
+# Figure 6: Line 408 onwards
+setwd("C:/Users/Sebastian/Documents/GitHub/Polycrisis-shocks") #setwd("C:/Users/basti/Documents/GitHub/Polycrisis-shocks")
 
 
 # Install and load necessary libraries using a vector ---- 
@@ -21,7 +20,7 @@ setwd("C:/Users/basti/Documents/GitHub/Polycrisis-shocks")
     }
   }
 
-data_present <- read_csv("Data/Shocks.csv") %>% 
+  data_present <- read_csv("Data/Shocks.csv") %>% 
           rename(country = `Country name`,  
           year = Year,
           shock_category = `Shock category`, 
@@ -30,26 +29,26 @@ data_present <- read_csv("Data/Shocks.csv") %>%
           filter(shock_category %in% c("CLIMATIC", "CONFLICTS", "ECOLOGICAL", "ECONOMIC", "GEOPHYSICAL", "TECHNOLOGICAL")) %>%
           mutate(shock_category = toTitleCase(tolower(shock_category))) %>%
           mutate(countrycode = countrycode(country,origin="country.name",destination="iso3c")) 
-  
-data <- data_present %>% filter(year < 2020)
+    
+  data <- data_present %>% filter(year < 2020)
 
-shocks<-read.csv("Data/Norm_Shocks.csv", sep = ",") #%>%
-#separate(Country.name.Year.Shock.category.Shock.type.count, into = c("Country name", "Year", "Shock category", "Shock type", "count"), sep = ",")
+  shocks<-read.csv("Data/Norm_Shocks.csv", sep = ",") #%>%
+  #separate(Country.name.Year.Shock.category.Shock.type.count, into = c("Country name", "Year", "Shock category", "Shock type", "count"), sep = ",")
 
-regions <-  read_csv("Data/r5regions.csv") %>% rename(region = Column1, countrycode=Column2)
-glimpse(regions)
+  regions <-  read_csv("Data/r5regions.csv") %>% rename(region = Column1, countrycode=Column2)
+  glimpse(regions)
 
-data <- left_join(data, regions, by = "countrycode") %>%
-mutate(region = sub("R5", "", region))  # Remove 'R5' from the region column
+  data <- left_join(data, regions, by = "countrycode") %>%
+  mutate(region = sub("R5", "", region))  # Remove 'R5' from the region column
 
-data_present <- left_join(data_present, regions, by = "countrycode") %>%
-mutate(region = sub("R5", "", region))  # Remove 'R5' from the region column
+  data_present <- left_join(data_present, regions, by = "countrycode") %>%
+  mutate(region = sub("R5", "", region))  # Remove 'R5' from the region column
 
-data_master <- data
-glimpse(data)
+  data_master <- data
+  glimpse(data)
 
 
-data_bycat <- data %>% group_by(shock_category,year,countrycode,region) %>% summarise(count = sum(count,na.rm=TRUE))
+  data_bycat <- data %>% group_by(shock_category,year,countrycode,region) %>% summarise(count = sum(count,na.rm=TRUE))
 
 # Figure 2 (Timeseries by Shocks) ---- 
 
@@ -129,8 +128,8 @@ data_bycat <- data %>% group_by(shock_category,year,countrycode,region) %>% summ
       legend.key.size = unit(0.5, "lines")  # Adjust legend key size
     ) 
 
-    #ggsave("Shock_Counts_by_Year_and_Category_2cols_size2_2019.png",dpi = 300)
-    #ggsave("Shock_Counts_by_Year_and_Category_2cols_size2.jpg",dpi = 300)
+    ggsave("Figures/Shock_Counts_by_Year_and_Category_2cols_size2_2019.png",dpi = 300)
+    
 
 # Figure 2 (Timeseries by Shocks) ---- 
 
@@ -557,12 +556,8 @@ data_bycat <- data %>% group_by(shock_category,year,countrycode,region) %>% summ
   #geom_text(data=data.frame(x=1985,y=97),
     #aes(x=x,y=y,label="Maximum theoretical co-ocurrences"),size=2.4)
     plot_coocurrence_ts_all
-    ggsave("Co-ocurrences_of_shocks_by_region_and_type_2019_loess_correctedJune2025.png", dpi = 300)
+    #ggsave("Co-ocurrences_of_shocks_by_region_and_type_2019_loess_correctedJune2025.png", dpi = 300)
 
-
-  glimpse(coocur)
-  library(lfe)
-  felm(I(100*count/total_combinations) ~  year:type|0|0|0,data=coocur)
 
 ## Figure 6 Coocurrence Circos (timeseries) ---
 
@@ -805,130 +800,3 @@ data_bycat <- data %>% group_by(shock_category,year,countrycode,region) %>% summ
 
 ## Figure Coocurrence Circos ---
 
-
-# Alternative Map Not Used in Main Text) (start)
-  glimpse(data)
-  data_c <- data %>% group_by(countrycode) %>% summarise(count=sum(count,na.rm=TRUE))
-  data_c$count
-  glimpse(data_c)
-  library(rnaturalearth)
-  world <- ne_countries(scale = "medium", returnclass = "sf")
-  shock_map <- left_join(world, data_c, by = c("iso_a3" = "countrycode"))%>% filter(continent != "Antarctica")
-  data_c$count
-  shock_map$count
-  quantile_breaks <- quantile(shock_map$count, probs = seq(0, 1, length.out = 5), na.rm = TRUE)
-
-    labels2 <- c(
-        paste0("<", round(quantile_breaks[2], 0)),
-        paste0("(", round(quantile_breaks[2], 0), ",", round(quantile_breaks[3], 0), "]"),
-        paste0("(", round(quantile_breaks[3], 0), ",", round(quantile_breaks[4], 0), "]"),
-        paste0(">", round(quantile_breaks[4], 0))
-    )
-
-    shock_map$damage_category <- cut(
-        shock_map$count,
-        breaks = quantile_breaks,
-        labels = labels2,
-        include.lowest = TRUE
-    )
-
-    ggplot(data = shock_map) +
-    geom_sf(aes(fill = damage_category )) +
-    #scale_fill_manual(values = custom_colors, name = "No. of Shocks",na.value="transparent") +
-    scale_fill_scico_d(palette="vik",end=0.9)+
-    coord_sf(crs = "+proj=robin") + # Robinson projection
-    theme_minimal() +
-    labs(fill = "No. of Shocks")
-
-    #ggsave("Figures/Alternative_Map.jpg",dpi=300)
-    
-# Aletrnative Map (end)
-
-# Figure of Filters (Not Used in Main Text) ---- 
-
-
-  # Group by country and type of shock
-  grouped_data <- data %>%
-    group_by(shock_category,year) %>%
-    summarise(count = sum(count,na.rm=TRUE))
-
-  glimpse(grouped_data)
-  # Function to process and plot data for each shock category
-  process_and_plot <- function(data, category) {
-    # Filter data for the current category
-    cat_data <- data %>% filter(shock_category == category)
-    
-    # Linear interpolation of missing values (if any)
-    cat_data$count <- na.approx(cat_data$count)
-    data_1 <- cat_data %>% ungroup() %>% as.data.frame()
-      mt <- lm(count~I(year-1970), data = data_1)
-      t <- resid(mt)    
-    
-    # Apply Butterworth filter for different window sizes
-    results <- list()
-    windows <- c(3,5,8,10,15)
-    for (w in windows) {
-      
-      
-      filtered <- pass.filt(t,W=w, type="low", method="Butterworth")
-
-      results[[paste(w, "years")]] <- filtered
-    }
-    
-    # Prepare data frame for plotting
-    tdf <- data.frame(year = cat_data$year, temp = t, Filter = "Unfiltered",cat=category,intercept=mt[1]$coefficients[1],slope=mt[1]$coefficients[2])
-    for (wi in 1:length(results)) {
-      w <- names(results)[wi]
-      tdf <- rbind(tdf, data.frame(year = cat_data$year, temp = results[[w]]-max(t)*(wi^1.1), Filter = w,cat=category,intercept=mt[1]$coefficients[1],slope=mt[1]$coefficients[2]))
-      #glimpse(tdf)
-    }
-    return(tdf)
-  }
-
-  # Apply the function to each shock category
-  unique_categories <- unique(grouped_data$shock_category)
-  i <- 1
-  for (cat in unique_categories) {
-    if (i==1){
-      filtered_shocks <-  process_and_plot(grouped_data, cat)
-      i <- 2
-    }else{
-      filtered_shocks <- rbind(filtered_shocks, process_and_plot(grouped_data, cat))
-    }
-  }
-
-      filtered_shocks <- filtered_shocks %>%
-        mutate(cat = toTitleCase(tolower(cat))) %>% 
-  mutate(Filter = factor(filtered_shocks$Filter, levels = c("Unfiltered", "3 years", "5 years", "8 years", "10 years", "15 years")))
-
-
-              
-    ggplot(filtered_shocks, aes(x = year, y = temp, color = Filter)) +
-      geom_line() +
-      facet_wrap(~cat,scales="free_y") +
-      theme_bw() +
-      labs(title = paste("Filtered Data for Types of Shocks"),
-          x = "Year",
-          y = "Count",
-          color = "Filter") +
-      theme_bw()+
-              theme(axis.title.y=element_blank(),
-              axis.text.y=element_blank(),
-              axis.ticks.y=element_blank(),
-              panel.grid.major = element_blank(), 
-              panel.grid.minor = element_blank(),
-              panel.border = element_blank(),
-              plot.title = element_text(hjust = 0.5),
-          panel.background = element_rect(fill = "#f5f5f5"),
-          strip.background = element_rect(fill = "#d6dbe0", color = "#d6dbe0"))  +
-          scale_color_manual(values = c("Unfiltered" = "#6e6e6e",  # Dark gray for unfiltered
-                                  "3 years" = "#1b9e77",    # Teal
-                                  "5 years" = "#d95f02",    # Orange
-                                  "8 years" = "#7570b3",    # Purple
-                                  "10 years" = "#e7298a",   # Magenta
-                                  "15 years" = "#66a61e")) +  # Green
-                                  guides(color=guide_legend(position="right"))
-                                
-
-    #ggsave("Filtered_Shocks_bottom.png", dpi = 300)
-# Figure of Filters Not Used in Main Text)
