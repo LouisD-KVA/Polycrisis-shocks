@@ -1,14 +1,9 @@
 ## Analysis Code 
 ## Code for Dynamics of the polycrisis: temporal trends, distribution and interconnection of Human-Earth system shocks (1970-2013) 
-## Coders: Bernie Bastien & Felipe Benra
+## Coders: Bernie Bastien, Felipe Benra, Louis Delannoy
 
-# FIGURES INDEX
-# Figure 2: Line 84 to Line 165
-# Figure 3: Line 195 to Line 278
-# Figure 4: Line 281 to Line 306
-# Figure 5: Line 308 to Line 408
-# Figure 6: Line 408 onwards
-setwd("C:/Users/Sebastian/Documents/GitHub/Polycrisis-shocks") #setwd("C:/Users/basti/Documents/GitHub/Polycrisis-shocks")
+#Change as appropiate: 
+setwd("C:/Users/basti/Documents/GitHub/Polycrisis-shocks")
 
 
 # Install and load necessary libraries using a vector ---- 
@@ -128,7 +123,7 @@ setwd("C:/Users/Sebastian/Documents/GitHub/Polycrisis-shocks") #setwd("C:/Users/
       legend.key.size = unit(0.5, "lines")  # Adjust legend key size
     ) 
 
-    ggsave("Figures/Shock_Counts_by_Year_and_Category_2cols_size2_2019.png",dpi = 300)
+    ggsave("Figures/Fig2_Shock_Counts_by_Year_and_Category.png",dpi = 300)
     
 
 # Figure 2 (Timeseries by Shocks) ---- 
@@ -300,7 +295,7 @@ setwd("C:/Users/Sebastian/Documents/GitHub/Polycrisis-shocks") #setwd("C:/Users/
       guides(fill = guide_legend(title = "Proportion of shocks \nper category per year",position="bottom",
                                 title.position = "top", hjust=0.5))
 
-  #ggsave("Shocks_by_Region_and_Category_2019.jpg", dpi = 300)
+  #ggsave("Fig4_Shocks_by_Region_and_Category_2019.jpg", dpi = 300)
 
 ### Figure 4 (Heatmap) ----
 
@@ -399,7 +394,7 @@ setwd("C:/Users/Sebastian/Documents/GitHub/Polycrisis-shocks") #setwd("C:/Users/
 
   # Add title
   title("Annual Co-occurrence of Shocks Within Countries")
-  #dev.copy(png, filename = "co_occurrence_circos_plot_4.pdf", width = 2000, height = 2000, res = 300)
+  #dev.copy(png, filename = "Figures/Fig6_co_occurrence_circos_plot_4.png", width = 2000, height = 2000, res = 300)
   dev.off()  # Close the device
 
 
@@ -556,7 +551,7 @@ setwd("C:/Users/Sebastian/Documents/GitHub/Polycrisis-shocks") #setwd("C:/Users/
   #geom_text(data=data.frame(x=1985,y=97),
     #aes(x=x,y=y,label="Maximum theoretical co-ocurrences"),size=2.4)
     plot_coocurrence_ts_all
-    #ggsave("Co-ocurrences_of_shocks_by_region_and_type_2019_loess_correctedJune2025.png", dpi = 300)
+    #ggsave("Fig7_Co-ocurrences_of_shocks_by_region_and_type_2019_loess_correctedJune2025.png", dpi = 300)
 
 
 ## Figure 6 Coocurrence Circos (timeseries) ---
@@ -697,10 +692,10 @@ setwd("C:/Users/Sebastian/Documents/GitHub/Polycrisis-shocks") #setwd("C:/Users/
   ggarrange(plot_coocurrence_ts_all+labs(title="All Shock Categories"),
     plot_coocurrence_ts_nogeo_notech+labs(title="Excluging Geophysical and Technological Shocks"),
     ncol=1,common.legend=TRUE,legend="right")
-  ggsave("Figures/Fug7_4panels.png",dpi=300)
+  #ggsave("Figures/F1g7_4panels.png",dpi=300)
 
   plot_coocurrence_ts_all
-  ggsave("Figures/New_Fig7_2panels.png",dpi=300)
+  #ggsave("Figures/New_Fig7_2panels.png",dpi=300)
 ## Figure 6b Coocurrence Circos (timeseries) ---
 
 
@@ -764,7 +759,7 @@ setwd("C:/Users/Sebastian/Documents/GitHub/Polycrisis-shocks") #setwd("C:/Users/
   circos.clear()  # Clear any existing plots
   windows()
   #library(svglite)
-  #svglite("co_occurrence_circos_plot_Categories_2019.svg", width = 20, height = 20)
+  svglite("co_occurrence_circos_plot_Categories_2019.svg", width = 20, height = 20)
 
   circos.par(#"track.margin" = c(0.1, 0.1), "cell.padding" = c(0.02, 0.02, 0.02, 0.02),
             "gap.degree" = 4)  # Increase gap 
@@ -794,9 +789,102 @@ setwd("C:/Users/Sebastian/Documents/GitHub/Polycrisis-shocks") #setwd("C:/Users/
 
   # Add title
   title("Annual Co-occurrence of Shocks Within Countries")
+  #dev.copy(png, filename = "Figures/Fig5_co_occurrence_circos_plot_5.png", width = 2000, height = 2000, res = 300)
+  
   dev.off()  # Close the device
 
 
 
 ## Figure Coocurrence Circos ---
+
+### Supplementary Figures ----
+
+# Install ggplot2 and tidyverse if not installed
+install.packages("tidyverse")  # tidyverse includes ggplot2 and dplyr
+library(tidyverse)
+
+# Set working directory (adjust the path to your own file location)
+setwd("C:\\Users\\loudel30")
+
+# 1. Load the dataset from CSV
+if (file.exists("Shocks.csv")) {
+  shock_fac.df <- read.csv("Shocks.csv")
+  print("Data loaded successfully:")
+  print(head(shock_fac.df))  # Check the first few rows of the dataset
+} else {
+  stop("File 'Shocks.csv' not found in the specified directory.")
+}
+
+# 2. Filter data (removing empty 'Shock.category' rows and date range)
+shock_fac.df <- shock_fac.df %>%
+  filter(nchar(Shock.category) > 0) %>%
+  filter(Year >= 1970 & Year <= 2019)  # Filter for the years 1970 to 2019
+
+print(paste("Number of rows after filtering:", nrow(shock_fac.df)))
+
+# 3. Summarise data (summarizing by Year, Shock.category, and Shock.type)
+shock_fac_sum.df <- shock_fac.df %>%
+  group_by(Year, Shock.category, Shock.type) %>%
+  summarise(sum = sum(count), .groups = 'drop')
+
+print("Summarized data:")
+print(head(shock_fac_sum.df))
+
+# 4. Calculate relative sum (relative sum of each shock type)
+shock_fac_sum.df <- shock_fac_sum.df %>%
+  group_by(Shock.category, Shock.type) %>%
+  mutate(rel_sum = sum / max(sum, na.rm = TRUE))
+
+print("Data after calculating relative sum:")
+print(head(shock_fac_sum.df))
+
+# 5. Combine 'Shock.category' and 'Shock.type' for the plot labels
+shock_fac_sum.df <- shock_fac_sum.df %>%
+  mutate(Shock_comb = paste(substring(Shock.category, 1, 4), Shock.type, sep = ":"))
+
+print("Data with combined shock labels:")
+print(head(shock_fac_sum.df))
+
+# 6. Plot (Wrap in print to ensure rendering in RStudio)
+# Define a custom function to format the x-axis labels as years
+format_years <- function(x) {
+  # Format numbers as years
+  format(x, nsmall = 0, big.mark = "", trim = TRUE)
+}
+
+# Plot 1: Faceting by Shock.category with smaller x-axis labels
+# Plot 1: Faceting by Shock.category with smaller x-axis labels and grey theme
+print(
+  ggplot(shock_fac_sum.df, aes(x = Year, y = rel_sum, color = Shock_comb)) +
+    geom_point() +
+    geom_smooth(se = FALSE) +
+    facet_wrap(vars(Shock.category)) +
+    scale_x_continuous(
+      breaks = seq(1970, 2019, by = 10),
+      labels = format_years  # Ensure correct formatting if needed
+    ) +
+    theme_gray() +  # Apply the grey theme
+    theme(
+      axis.text.x = element_text(size = 7)  # Adjust text size for x-axis labels
+    )
+)
+
+# Plot 2: Faceting by Shock_comb with smaller x-axis labels and grey theme
+print(
+  ggplot(shock_fac_sum.df, aes(x = Year, y = rel_sum)) +
+    geom_point() +
+    geom_smooth(se = FALSE) +
+    facet_wrap(vars(Shock_comb)) +
+    scale_x_continuous(
+      breaks = seq(1970, 2019, by = 10),
+      labels = format_years  # Ensure correct formatting if needed
+    ) +
+    theme_gray() +  # Apply the grey theme
+    theme(
+      axis.text.x = element_text(size = 7)  # Adjust text size for x-axis labels
+    )
+)
+
+
+### Supplementary Figures ----
 
