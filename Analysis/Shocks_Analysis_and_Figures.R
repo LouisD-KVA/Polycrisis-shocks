@@ -199,7 +199,7 @@ setwd("C:/Users/basti/Documents/GitHub/Polycrisis-shocks")
 
   #import shapefile of all countries
 
-  countries<-terra::vect("Data", layer="World_Countries__Generalized_")
+  countries<-terra::vect("Data/geospatial", layer="World_Countries__Generalized_")
   countries$COUNTRY#check countries names
   countries$ISO#namibia is not there as possible the system recognizes it as "na" given that the iso2 code is NA
 
@@ -208,7 +208,7 @@ setwd("C:/Users/basti/Documents/GitHub/Polycrisis-shocks")
   countries$ISO3[154]<-"NAM"#here we change the name of Namibia to iso3 code to avoid confusion with the "NA" string from the iso2 code
 
   countries$COUNTRY<-tolower(countries$COUNTRY)#tolower case
-  plot(countries)
+  plot(countries)#check map
 
   # import normalized shock data 
 
@@ -267,9 +267,7 @@ setwd("C:/Users/basti/Documents/GitHub/Polycrisis-shocks")
   #ggsave("Figures/Number_Normalized_Shocks_Map2.png",dpi=300)
   #Export as shapefile to visualize and edit in any GIS software
 
-  terra::writeVector(vector_countries,"Z:/Global_Shocks/spatial_data", layer="vector_countries", filetype = "ESRI Shapefile", overwrite = TRUE)
-
-# Figure 3 (Global Map of normalized shocks)
+  terra::writeVector(vector_countries,"Z:/Global_Shocks/spatial_data", layer="Fig.3", filetype = "ESRI Shapefile", overwrite = TRUE)
 
 
 ### Figure 4 (Heatmap) ----
