@@ -188,87 +188,87 @@ setwd("C:/Users/basti/Documents/GitHub/Polycrisis-shocks")
 
 # Figure 3 (Global Map of normalized shocks)
 
-  #libraries
-  library(terra)
-  library(readxl)
-  library(openxlsx)
-  library(dplyr)
-  library(tidyverse)
-  library(wbstats)  
-  library(countrycode)
+#libraries
+library(terra)
+library(readxl)
+library(openxlsx)
+library(dplyr)
+library(tidyverse)
+library(wbstats)  
+library(countrycode)
+library(sf)
+library(scico)
 
-  #import shapefile of all countries
+#import shapefile of all countries
 
-  countries<-terra::vect("Data/geospatial", layer="World_Countries__Generalized_")
-  countries$COUNTRY#check countries names
-  countries$ISO#namibia is not there as possible the system recognizes it as "na" given that the iso2 code is NA
+countries<-terra::vect("Data/geospatial", layer="World_Countries__Generalized_")
+countries$COUNTRY#check countries names
+countries$ISO#namibia is not there as possible the system recognizes it as "na" given that the iso2 code is NA
 
-  countries$ISO3<-countrycode(countries$ISO,"iso2c","iso3c")#get ISO3 code out of IS02 Code
-  countries$ISO3
-  countries$ISO3[154]<-"NAM"#here we change the name of Namibia to iso3 code to avoid confusion with the "NA" string from the iso2 code
+countries$ISO3<-countrycode(countries$ISO,"iso2c","iso3c")#get ISO3 code out of IS02 Code
+countries$ISO3
+countries$ISO3[154]<-"NAM"#here we change the name of Namibia to iso3 code to avoid confusion with the "NA" string from the iso2 code
 
-  countries$COUNTRY<-tolower(countries$COUNTRY)#tolower case
-  plot(countries)#check map
+countries$COUNTRY<-tolower(countries$COUNTRY)#tolower case
+plot(countries)#check map
 
-  # import normalized shock data 
+# import normalized shock data 
 
-  shocks<-read_csv("Z:/Global_Shocks/Shock norm.csv")
+shocks<-read_csv("Z:/Global_Shocks/Data/Norm_shocks.csv")
 
-  shock_summ<-shocks%>% 
-    group_by(`Country name`)%>%
-    summarize(nr_of_events=sum(as.numeric(count)))
+shock_summ<-shocks%>% 
+  group_by(`Country name`)%>%
+  summarize(nr_of_events=sum(as.numeric(count)))
 
-  #transform country names into ISO3 code to be able to merge databases
+#transform country names into ISO3 code to be able to merge databases
 
-  shock_summ$ISO3<-countrycode(shock_summ$`Country name`,"country.name","iso3c")
-  shock_summ$`Country name`<-tolower(shock_summ$`Country name`)#to lower case
-  shock_summ$`Country name`<-gsub(" ", "", shock_summ$`Country name`)
+shock_summ$ISO3<-countrycode(shock_summ$`Country name`,"country.name","iso3c")
+shock_summ$`Country name`<-tolower(shock_summ$`Country name`)#to lower case
+shock_summ$`Country name`<-gsub(" ", "", shock_summ$`Country name`)
 
-  #st_read("World_Countries__Generalized_.shp")
+#add population density data to "shock_summ"
+pop_density<-read.xlsx("Z:/Global_Shocks/Data/db_pledges_all.xlsx")##change depending on where database is on your computers
+shock_summ<-merge(shock_summ,pop_density, by="ISO3")#merge shock_summ and pop_density.
 
-  #add population density data to "shock_summ"
-  pop_density<-read.xlsx("Z:/Global_Shocks/Data/db_pledges_all.xlsx")##change depending on where database is on your computers
-  shock_summ<-merge(shock_summ,pop_density, by="ISO3")#merge shock_summ and pop_density.
+#spatialize and merge databases
+vector_countries<-terra::merge(countries,shock_summ, by="ISO3")
+as.data.table(vector_countries)##check data
+names(vector_countries)[c(7:8)]<-c("country_nam","nr_event")#name columns
+plot(vector_countries)
 
-  #spatialize and merge databases
-  vector_countries<-terra::merge(countries,shock_summ, by="ISO3")
-  as.data.table(vector_countries)##check data
-  names(vector_countries)[c(7:8)]<-c("country_nam","nr_event")#name columns
-  plot(vector_countries)
+glimpse(vector_countries)
 
-  glimpse(vector_countries)
-
-  # Convert SpatVector to sf object
-  vector_countries_sf <- st_as_sf(vector_countries)
-  # Divide the nr_event into 4 quantiles and create labels
-  vector_countries_sf <- vector_countries_sf %>%
-    mutate(quantile_label = ntile(pop_density, 5),
-          quantile_label = case_when(
-            quantile_label == 1 ~ "Low",
-            quantile_label == 2 ~ "Moderate",
-            quantile_label == 3 ~ "High",
-            quantile_label == 4 ~ "Very High",
-            quantile_label == 5 ~ "Severe"
-          ),
+# Convert SpatVector to sf object
+vector_countries_sf <- st_as_sf(vector_countries)
+# Divide the nr_event into 4 quantiles and create labels
+vector_countries_sf <- vector_countries_sf %>%
+  mutate(quantile_label = ntile(pop_density, 5),
+         quantile_label = case_when(
+           quantile_label == 1 ~ "Low",
+           quantile_label == 2 ~ "Moderate",
+           quantile_label == 3 ~ "High",
+           quantile_label == 4 ~ "Very High",
+           quantile_label == 5 ~ "Severe"
+         ),
          quantile_label = factor(quantile_label, levels = c("Low", "Moderate", "High","Very High", "Severe"))
   )
 
-  # Plot using ggplot2 and scico palette
-  ggplot(data = vector_countries_sf) +
-    geom_sf(aes(fill = quantile_label), color = "white") +
-    theme_minimal() +
-    xlab("Longitude") +
-    ylab("Latitude") +
-    theme(legend.position = "right")+
-    scale_fill_scico_d(palette="lajolla",end=0.9,begin=0.2,direction=-1)+
-    coord_sf(crs = "+proj=robin") + # Robinson projection
-    theme_void() +
-    labs(fill = "No. of Shocks by population density")
-  #ggsave("Figures/Number_Normalized_Shocks_Map2.png",dpi=300)
-  #Export as shapefile to visualize and edit in any GIS software
+# Plot using ggplot2 and scico palette
+ggplot(data = vector_countries_sf) +
+  geom_sf(aes(fill = quantile_label), color = "white") +
+  theme_minimal() +
+  xlab("Longitude") +
+  ylab("Latitude") +
+  theme(legend.position = "right")+
+  scale_fill_scico_d(palette="lajolla",end=0.9,begin=0.2,direction=-1)+
+  coord_sf(crs = "+proj=robin") + # Robinson projection
+  theme_void() +
+  labs(fill = "No. of Shocks by population density")
+#ggsave("Figures/Fig. 3_Number_Normalized_Shocks.png",dpi=300)
 
-  terra::writeVector(vector_countries,"Z:/Global_Shocks/spatial_data", layer="Fig.3", filetype = "ESRI Shapefile", overwrite = TRUE)
+#Export as shapefile to visualize and edit in any GIS software
 
+terra::writeVector(vector_countries,"Z:/Global_Shocks/spatial_data", layer="Fig.3", filetype = "ESRI Shapefile", overwrite = TRUE)
 
 ### Figure 4 (Heatmap) ----
   data %>%
